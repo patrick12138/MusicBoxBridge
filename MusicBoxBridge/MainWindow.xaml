@@ -5,19 +5,23 @@
        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
        xmlns:local="clr-namespace:MusicBridge"
        mc:Ignorable="d"
-       Title="MusicBridge" Height="220" Width="350"
+       Title="MusicBridge" Height="260" Width="360"
        FontSize="12" WindowStartupLocation="CenterScreen"
-       ResizeMode="CanMinimize">
+       ResizeMode="CanMinimize" 
+       Background="#F7F9FC">
     <Window.Resources>
+        <!-- 添加软阴影效果 -->
+        <DropShadowEffect x:Key="SoftShadowEffect" ShadowDepth="1" BlurRadius="4" Opacity="0.3" Color="#B0B0B0"/>
+        
         <!-- 控制按钮样式 -->
         <Style x:Key="MediaButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="36" />
-            <Setter Property="Height" Value="36" />
-            <Setter Property="Margin" Value="2" />
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="38" />
+            <Setter Property="Margin" Value="4" />
             <Setter Property="FontSize" Value="16" />
-            <Setter Property="Foreground" Value="#333333" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="#CCCCCC" />
+            <Setter Property="Foreground" Value="#444444" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#E0E0E0" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
@@ -26,16 +30,20 @@
                         <Border x:Name="border" Background="{TemplateBinding Background}" 
                                 BorderBrush="{TemplateBinding BorderBrush}" 
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="18">
+                                CornerRadius="19" Effect="{StaticResource SoftShadowEffect}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#F0F0F0" TargetName="border"/>
-                                <Setter Property="BorderBrush" Value="#AAAAAA" TargetName="border"/>
+                                <Setter Property="Background" Value="#F5F9FF" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#C0D0F0" TargetName="border"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter Property="Background" Value="#E0E0E0" TargetName="border"/>
+                                <Setter Property="Background" Value="#E8F0FF" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#B0C0E0" TargetName="border"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.6" TargetName="border"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -79,9 +87,9 @@
         
         <!-- 应用图标按钮样式 -->
         <Style x:Key="AppIconStyle" TargetType="Button">
-            <Setter Property="Width" Value="42" />
-            <Setter Property="Height" Value="42" />
-            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Width" Value="48" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Margin" Value="2,0" />
             <Setter Property="Padding" Value="3" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
@@ -94,7 +102,7 @@
                             <Border x:Name="border" Background="{TemplateBinding Background}" 
                                     BorderBrush="{TemplateBinding BorderBrush}" 
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="4">
+                                    CornerRadius="8">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <!-- 活跃指示器 -->
@@ -102,16 +110,6 @@
                                     Background="Transparent" CornerRadius="4"
                                     HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                     Margin="0,0,2,2"/>
-                            <!-- 悬停时显示的关闭按钮 -->
-                            <Border x:Name="closeButton" Width="16" Height="16" 
-                                    Background="#FFE0E0E0" CornerRadius="8" Opacity="0"
-                                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                                    Margin="0,2,2,0" BorderBrush="#FFAAAAAA" BorderThickness="1"
-                                    MouseLeftButtonUp="CloseButton_Click"> <!-- 添加点击事件 -->
-                                <TextBlock Text="✕" FontSize="10" FontWeight="Bold" 
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Foreground="#FF555555"/>
-                            </Border>
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -126,17 +124,65 @@
                                 <Setter Property="BorderBrush" Value="#ADD8E6" TargetName="border"/>
                                 <Setter Property="Background" Value="#4682B4" TargetName="activeIndicator"/>
                             </DataTrigger>
-                            <MultiDataTrigger>
-                                <MultiDataTrigger.Conditions>
-                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Active"/>
-                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
-                                </MultiDataTrigger.Conditions>
-                                <Setter Property="Opacity" Value="1" TargetName="closeButton"/>
-                            </MultiDataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+        
+        <!-- 关闭按钮样式 -->
+        <Style x:Key="CloseButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="#666666" />
+            <Setter Property="Background" Value="#F5F5F5" />
+            <Setter Property="BorderBrush" Value="#CCCCCC" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#FFE0E0" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#FFCCCC" TargetName="border"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#FFD0D0" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#FF9999" TargetName="border"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- 媒体控制按钮组容器样式 -->
+        <Style x:Key="MediaControlsContainerStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F9F9F9" />
+            <Setter Property="BorderBrush" Value="#EEEEEE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="6" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+        
+        <!-- 信息面板样式 -->
+        <Style x:Key="InfoPanelStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#DDDDDD" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="0,6,0,6" />
         </Style>
         
         <!-- 空值到可见性转换器 -->
@@ -161,39 +207,53 @@
             <TextBlock Grid.Row="0" Text="选择音乐应用:" Margin="2,0,0,4" FontSize="11" Foreground="#555"/>
             
             <!-- 应用图标区域 -->
-            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="AppIconsPanel" Orientation="Horizontal">
-                    <!-- QQ音乐 -->
-                    <Button x:Name="QQMusicButton" Style="{StaticResource AppIconStyle}" 
-                            Click="AppIconButton_Click" Tag="QQMusic" ToolTip="QQ音乐"
-                            MouseRightButtonUp="AppIconButton_RightClick">
-                        <Grid>
-                            <TextBlock Text="QQ" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
-                                       VerticalAlignment="Center" Foreground="#3CB371"/>
-                        </Grid>
-                    </Button>
-                    
-                    <!-- 网易云音乐 -->
-                    <Button x:Name="NetEaseButton" Style="{StaticResource AppIconStyle}" 
-                            Click="AppIconButton_Click" Tag="NetEase" ToolTip="网易云音乐"
-                            MouseRightButtonUp="AppIconButton_RightClick">
-                        <Grid>
-                            <TextBlock Text="网易" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
-                                       VerticalAlignment="Center" Foreground="#C20C0C"/>
-                        </Grid>
-                    </Button>
-                    
-                    <!-- 酷狗音乐 -->
-                    <Button x:Name="KugouButton" Style="{StaticResource AppIconStyle}" 
-                            Click="AppIconButton_Click" Tag="Kugou" ToolTip="酷狗音乐"
-                            MouseRightButtonUp="AppIconButton_RightClick">
-                        <Grid>
-                            <TextBlock Text="酷狗" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
-                                       VerticalAlignment="Center" Foreground="#2CA2F9"/>
-                        </Grid>
-                    </Button>
-                </StackPanel>
-            </ScrollViewer>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="AppIconsPanel" Orientation="Horizontal">
+                        <!-- QQ音乐 -->
+                        <Button x:Name="QQMusicButton" Style="{StaticResource AppIconStyle}"
+                                Click="AppIconButton_Click" Tag="QQMusic" ToolTip="QQ音乐"
+                                MouseRightButtonUp="AppIconButton_RightClick">
+                            <Grid>
+                                <TextBlock Text="QQ" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center" Foreground="#3CB371"/>
+                            </Grid>
+                        </Button>
+                        
+                        <!-- 网易云音乐 -->
+                        <Button x:Name="NetEaseButton" Style="{StaticResource AppIconStyle}"
+                                Click="AppIconButton_Click" Tag="NetEase" ToolTip="网易云音乐"
+                                MouseRightButtonUp="AppIconButton_RightClick">
+                            <Grid>
+                                <TextBlock Text="网易" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center" Foreground="#C20C0C"/>
+                            </Grid>
+                        </Button>
+                        
+                        <!-- 酷狗音乐 -->
+                        <Button x:Name="KugouButton" Style="{StaticResource AppIconStyle}"
+                                Click="AppIconButton_Click" Tag="Kugou" ToolTip="酷狗音乐"
+                                MouseRightButtonUp="AppIconButton_RightClick">
+                            <Grid>
+                                <TextBlock Text="酷狗" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center" Foreground="#2CA2F9"/>
+                            </Grid>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+                
+                <!-- 关闭当前应用按钮 -->
+                <Button x:Name="GlobalCloseButton" Grid.Column="1" Style="{StaticResource CloseButtonStyle}"
+                        Margin="8,0,0,0" Width="30" Height="30" Click="CloseCurrentAppButton_Click" 
+                        ToolTip="关闭当前应用" VerticalAlignment="Center">
+                    <TextBlock Text="✕" FontSize="12" FontWeight="Bold"/>
+                </Button>
+            </Grid>
             
             <!-- 右键菜单 -->
             <Grid.ContextMenu>
@@ -204,8 +264,7 @@
         </Grid>
 
         <!-- 当前歌曲信息区域 -->
-        <Border Grid.Row="1" BorderBrush="#DDDDDD" BorderThickness="1" 
-              CornerRadius="3" Margin="0,6,0,6" Padding="6,4">
+        <Border Grid.Row="1" Style="{StaticResource InfoPanelStyle}">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -229,8 +288,7 @@
         </Border>
 
         <!-- 控制按钮区域 -->
-        <Border Grid.Row="2" BorderBrush="#EEEEEE" BorderThickness="1" CornerRadius="4"
-               Background="#F9F9F9" Padding="4">
+        <Border Grid.Row="2" Style="{StaticResource MediaControlsContainerStyle}">
             <UniformGrid Rows="1" Columns="6" HorizontalAlignment="Center">
                 <!-- 上一曲按钮 -->
                 <Button x:Name="PreviousButton" Style="{StaticResource MediaButtonStyle}" 
