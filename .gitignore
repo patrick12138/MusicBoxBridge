@@ -1,0 +1,66 @@
+## Build results
+bin/
+obj/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+
+## User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Visual Studio 2019/2022
+.vs/
+
+## Rider
+.idea/
+
+## ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+## Package management
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## VS Code settings
+.vscode/
+
+## DotCover
+*.dotCover
+
+## Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+## Auto-generated
+Generated\ Files/
+
+## Publish output
+publish/
+out/
+
+## EF Migrations snapshot
+Migrations/*.Designer.cs
+Migrations/*Snapshot.cs
+
+## Others
+*.dbmdl
+*.bak
+*.sql
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Others
+*.swp
+*.tmp
+*.log

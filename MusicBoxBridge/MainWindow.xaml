@@ -1,0 +1,180 @@
+﻿<Window x:Class="MusicBridge.MainWindow"
+       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+       xmlns:local="clr-namespace:MusicBridge"
+       mc:Ignorable="d"
+       Title="MusicBridge" Height="190" Width="350"
+       FontSize="12" WindowStartupLocation="CenterScreen"
+       ResizeMode="CanMinimize">
+    <Window.Resources>
+        <!-- 控制按钮样式 -->
+        <Style x:Key="MediaButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Foreground" Value="#333333" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="#CCCCCC" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="18">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#F0F0F0" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#AAAAAA" TargetName="border"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#E0E0E0" TargetName="border"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 小型控制按钮样式 -->
+        <Style x:Key="SmallButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Margin" Value="4,0,2,0" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="#333333" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="#CCCCCC" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="11">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#F0F0F0" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#AAAAAA" TargetName="border"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#E0E0E0" TargetName="border"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="8,8,8,6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 音乐播放器选择区域 -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <ComboBox x:Name="MusicAppComboBox" Grid.Column="0" Height="22" 
+                    SelectionChanged="MusicAppComboBox_SelectionChanged">
+                <!-- <ComboBoxItem Content="QQ音乐" IsSelected="True"/>
+               <ComboBoxItem Content="网易云音乐"/>`
+               <ComboBoxItem Content="酷狗音乐"/> -->
+            </ComboBox>
+            <Button x:Name="LaunchAppButton" Grid.Column="1" Style="{StaticResource SmallButtonStyle}"
+                  Click="LaunchAppButton_Click" ToolTip="启动应用">
+                <TextBlock Text="▶" FontWeight="Bold"/>
+            </Button>
+            <Button x:Name="CloseAppButton" Grid.Column="2" Style="{StaticResource SmallButtonStyle}"
+                  Click="CloseAppButton_Click" ToolTip="关闭应用">
+                <TextBlock Text="✕" FontWeight="Bold"/>
+            </Button>
+        </Grid>
+
+        <!-- 当前歌曲信息区域 -->
+        <Border Grid.Row="1" BorderBrush="#DDDDDD" BorderThickness="1" 
+              CornerRadius="3" Margin="0,6,0,6" Padding="6,4">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="状态: " FontWeight="SemiBold" FontSize="11" Foreground="#555"/>
+                    <TextBlock Grid.Column="1" x:Name="CurrentStatusTextBlock" Text="未连接" 
+                             FontSize="11" TextTrimming="CharacterEllipsis"/>
+                </Grid>
+                <Grid Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="播放: " FontWeight="SemiBold" FontSize="11" Foreground="#555"/>
+                    <TextBlock Grid.Column="1" x:Name="CurrentSongTextBlock" Text="无" 
+                             FontSize="11" TextTrimming="CharacterEllipsis"/>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 控制按钮区域 -->
+        <Border Grid.Row="2" BorderBrush="#EEEEEE" BorderThickness="1" CornerRadius="4"
+               Background="#F9F9F9" Padding="4">
+            <UniformGrid Rows="1" Columns="6" HorizontalAlignment="Center">
+                <!-- 上一曲按钮 -->
+                <Button x:Name="PreviousButton" Style="{StaticResource MediaButtonStyle}" 
+                      Click="PreviousButton_Click" ToolTip="上一曲">
+                    <TextBlock Text="⏮" FontSize="15"/>
+                </Button>
+
+                <!-- 播放/暂停按钮 -->
+                <Button x:Name="PlayPauseButton" Style="{StaticResource MediaButtonStyle}" 
+                      Width="40" Height="40" Margin="2,0"
+                      Click="PlayPauseButton_Click" ToolTip="播放/暂停">
+                    <TextBlock Text="⏯" FontSize="18"/>
+                </Button>
+
+                <!-- 下一曲按钮 -->
+                <Button x:Name="NextButton" Style="{StaticResource MediaButtonStyle}" 
+                      Click="NextButton_Click" ToolTip="下一曲">
+                    <TextBlock Text="⏭" FontSize="15"/>
+                </Button>
+
+                <!-- 音量减按钮 -->
+                <Button x:Name="VolumeDownButton" Style="{StaticResource MediaButtonStyle}" 
+                      Click="VolumeDownButton_Click" ToolTip="音量-">
+                    <TextBlock Text="🔉" FontSize="15"/>
+                </Button>
+
+                <!-- 静音按钮 -->
+                <Button x:Name="MuteButton" Style="{StaticResource MediaButtonStyle}" 
+                      Click="MuteButton_Click" ToolTip="静音">
+                    <TextBlock Text="🔇" FontSize="15"/>
+                </Button>
+
+                <!-- 音量加按钮 -->
+                <Button x:Name="VolumeUpButton" Style="{StaticResource MediaButtonStyle}" 
+                      Click="VolumeUpButton_Click" ToolTip="音量+">
+                    <TextBlock Text="🔊" FontSize="15"/>
+                </Button>
+            </UniformGrid>
+        </Border>
+    </Grid>
+</Window>
