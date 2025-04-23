@@ -5,7 +5,7 @@
        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
        xmlns:local="clr-namespace:MusicBridge"
        mc:Ignorable="d"
-       Title="MusicBridge" Height="190" Width="350"
+       Title="MusicBridge" Height="220" Width="350"
        FontSize="12" WindowStartupLocation="CenterScreen"
        ResizeMode="CanMinimize">
     <Window.Resources>
@@ -76,6 +76,70 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        
+        <!-- 应用图标按钮样式 -->
+        <Style x:Key="AppIconStyle" TargetType="Button">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Margin" Value="4,0" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                    BorderBrush="{TemplateBinding BorderBrush}" 
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <!-- 活跃指示器 -->
+                            <Border x:Name="activeIndicator" Width="8" Height="8" 
+                                    Background="Transparent" CornerRadius="4"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Margin="0,0,2,2"/>
+                            <!-- 悬停时显示的关闭按钮 -->
+                            <Border x:Name="closeButton" Width="16" Height="16" 
+                                    Background="#FFE0E0E0" CornerRadius="8" Opacity="0"
+                                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    Margin="0,2,2,0" BorderBrush="#FFAAAAAA" BorderThickness="1">
+                                <TextBlock Text="✕" FontSize="10" FontWeight="Bold" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="#FF555555"/>
+                            </Border>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#F0F0F0" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#DDDDDD" TargetName="border"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#E0E0E0" TargetName="border"/>
+                            </Trigger>
+                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Active">
+                                <Setter Property="Background" Value="#E8F4FF" TargetName="border"/>
+                                <Setter Property="BorderBrush" Value="#ADD8E6" TargetName="border"/>
+                                <Setter Property="Background" Value="#4682B4" TargetName="activeIndicator"/>
+                            </DataTrigger>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="Active"/>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Opacity" Value="1" TargetName="closeButton"/>
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- 空值到可见性转换器 -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     </Window.Resources>
 
     <Grid Margin="8,8,8,6">
@@ -86,27 +150,56 @@
         </Grid.RowDefinitions>
 
         <!-- 音乐播放器选择区域 -->
-        <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-
-            <ComboBox x:Name="MusicAppComboBox" Grid.Column="0" Height="22" 
-                    SelectionChanged="MusicAppComboBox_SelectionChanged">
-                <!-- <ComboBoxItem Content="QQ音乐" IsSelected="True"/>
-               <ComboBoxItem Content="网易云音乐"/>`
-               <ComboBoxItem Content="酷狗音乐"/> -->
-            </ComboBox>
-            <Button x:Name="LaunchAppButton" Grid.Column="1" Style="{StaticResource SmallButtonStyle}"
-                  Click="LaunchAppButton_Click" ToolTip="启动应用">
-                <TextBlock Text="▶" FontWeight="Bold"/>
-            </Button>
-            <Button x:Name="CloseAppButton" Grid.Column="2" Style="{StaticResource SmallButtonStyle}"
-                  Click="CloseAppButton_Click" ToolTip="关闭应用">
-                <TextBlock Text="✕" FontWeight="Bold"/>
-            </Button>
+        <Grid x:Name="AppSelectionGrid" Grid.Row="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- 应用图标标题 -->
+            <TextBlock Grid.Row="0" Text="选择音乐应用:" Margin="2,0,0,4" FontSize="11" Foreground="#555"/>
+            
+            <!-- 应用图标区域 -->
+            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <StackPanel x:Name="AppIconsPanel" Orientation="Horizontal">
+                    <!-- QQ音乐 -->
+                    <Button x:Name="QQMusicButton" Style="{StaticResource AppIconStyle}" 
+                            Click="AppIconButton_Click" Tag="QQMusic" ToolTip="QQ音乐"
+                            MouseRightButtonUp="AppIconButton_RightClick">
+                        <Grid>
+                            <TextBlock Text="QQ" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center" Foreground="#3CB371"/>
+                        </Grid>
+                    </Button>
+                    
+                    <!-- 网易云音乐 -->
+                    <Button x:Name="NetEaseButton" Style="{StaticResource AppIconStyle}" 
+                            Click="AppIconButton_Click" Tag="NetEase" ToolTip="网易云音乐"
+                            MouseRightButtonUp="AppIconButton_RightClick">
+                        <Grid>
+                            <TextBlock Text="网易" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center" Foreground="#C20C0C"/>
+                        </Grid>
+                    </Button>
+                    
+                    <!-- 酷狗音乐 -->
+                    <Button x:Name="KugouButton" Style="{StaticResource AppIconStyle}" 
+                            Click="AppIconButton_Click" Tag="Kugou" ToolTip="酷狗音乐"
+                            MouseRightButtonUp="AppIconButton_RightClick">
+                        <Grid>
+                            <TextBlock Text="酷狗" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center" Foreground="#2CA2F9"/>
+                        </Grid>
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
+            
+            <!-- 右键菜单 -->
+            <Grid.ContextMenu>
+                <ContextMenu x:Name="AppContextMenu">
+                    <MenuItem x:Name="CloseAppMenuItem" Header="关闭应用" Click="CloseAppMenuItem_Click"/>
+                </ContextMenu>
+            </Grid.ContextMenu>
         </Grid>
 
         <!-- 当前歌曲信息区域 -->

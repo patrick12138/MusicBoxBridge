@@ -605,16 +605,6 @@ namespace MusicBridge
 
             // QQ音乐通常对 WM_APPCOMMAND 响应良好，直接使用基类实现即可。
             // 如果需要特殊处理路径查找（例如检查特定注册表项），可以重写 FindPathFromRegistry 或 CheckDefaultInstallLocations
-
-            protected override string? CheckDefaultInstallLocations()
-            {
-                string path86 = @"C:\Program Files (x86)\Tencent\QQMusic\QQMusic.exe";
-                string path64 = @"C:\Program Files\Tencent\QQMusic\QQMusic.exe"; // 可能的64位路径
-                if (File.Exists(path86)) return path86;
-                if (File.Exists(path64)) return path64;
-                // 还可以检查 AppData 等路径
-                return base.CheckDefaultInstallLocations();
-            }
         }
 
         // --- 酷狗音乐控制器实现 ---
@@ -647,16 +637,6 @@ namespace MusicBridge
                     }
                 }
                 return null; // 如果基类找不到或者拼接后文件不存在，则返回 null
-            }
-
-
-            protected override string? CheckDefaultInstallLocations()
-            {
-                string path86 = @"C:\Program Files (x86)\KuGou\KGMusic\KuGou.exe";
-                string path64 = @"C:\Program Files\KuGou\KGMusic\KuGou.exe";
-                if (File.Exists(path86)) return path86;
-                if (File.Exists(path64)) return path64;
-                return base.CheckDefaultInstallLocations();
             }
 
             // 重写 SendCommandAsync 以处理键盘模拟 (如果 WM_APPCOMMAND 对播放控制无效)
@@ -723,33 +703,6 @@ namespace MusicBridge
             public override string ProcessName => "cloudmusic";
             protected override string DefaultExeName => "cloudmusic.exe";
 
-            protected override string? CheckDefaultInstallLocations()
-            {
-                // Program Files
-                string path86 = @"C:\Program Files (x86)\Netease\CloudMusic\cloudmusic.exe";
-                string path64 = @"C:\Program Files\Netease\CloudMusic\cloudmusic.exe";
-                if (File.Exists(path86)) return path86;
-                if (File.Exists(path64)) return path64;
-
-                // AppData (新版可能安装在这里)
-                try
-                {
-                    string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                    string appDataPath = Path.Combine(localAppData, @"Netease\CloudMusic\cloudmusic.exe");
-                    if (File.Exists(appDataPath)) return appDataPath;
-
-                    string roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    string roamingPath = Path.Combine(roamingAppData, @"Netease\CloudMusic\cloudmusic.exe");
-                    if (File.Exists(roamingPath)) return roamingPath;
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[网易云] 检查 AppData 路径时出错: {ex.Message}");
-                }
-
-                return base.CheckDefaultInstallLocations();
-            }
-
             // 重写 SendCommandAsync 以处理键盘模拟 (如果 WM_APPCOMMAND 对播放控制无效)
             public override async Task SendCommandAsync(MediaCommand command)
             {
@@ -811,6 +764,12 @@ namespace MusicBridge
         private readonly List<IMusicAppController> controllers = new List<IMusicAppController>(); // 控制器列表
         private readonly DispatcherTimer statusTimer = new DispatcherTimer(); // 状态刷新定时器
 
+        // 当前活跃应用标记
+        private string? currentActiveAppTag = null;
+
+        private ContextMenu? appContextMenu;
+        private MenuItem? closeAppMenuItem;
+
         public MainWindow()
         {
             InitializeComponent(); // 初始化 XAML 组件（必须在最前面）
@@ -822,22 +781,33 @@ namespace MusicBridge
                 controllers.Add(new NeteaseMusicController());
                 controllers.Add(new KugouMusicController());
 
-                // 填充下拉框
-                foreach (var controller in controllers)
+                // 默认选中第一个控制器作为当前控制器
+                if (controllers.Count > 0)
                 {
-                    MusicAppComboBox.Items.Add(new ComboBoxItem { Content = controller.Name });
-                }
-
-                // 默认选中第一个，并初始化 currentController
-                if (MusicAppComboBox.Items.Count > 0)
-                {
-                    MusicAppComboBox.SelectedIndex = 0;
-                    // SelectionChanged 事件会处理 currentController 的赋值
+                    currentController = controllers[0];
                 }
                 else
                 {
                     UpdateStatus("错误：没有找到任何音乐播放器控制器。");
-                    SetAllControlsEnabled(false); // 禁用所有控件
+                    SetMediaControlsEnabled(false); // 禁用控件
+                }
+
+                // 获取上下文菜单引用
+                Grid appSelectionGrid = (Grid)this.FindName("AppSelectionGrid");
+                if (appSelectionGrid != null)
+                {
+                    appContextMenu = appSelectionGrid.ContextMenu;
+                    if (appContextMenu != null)
+                    {
+                        foreach (var item in appContextMenu.Items)
+                        {
+                            if (item is MenuItem menuItem && menuItem.Name == "CloseAppMenuItem")
+                            {
+                                closeAppMenuItem = menuItem;
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 // 配置状态刷新定时器
@@ -848,11 +818,25 @@ namespace MusicBridge
                 // 绑定 Loaded 事件，在窗口加载完成后执行初始刷新
                 Loaded += MainWindow_Loaded;
 
+                // 初始化右键菜单
+                InitializeContextMenu();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"初始化应用时发生严重错误: {ex.Message}\n应用可能无法正常工作。", "初始化失败", MessageBoxButton.OK, MessageBoxImage.Error);
-                SetAllControlsEnabled(false); // 出错时禁用控件
+                SetMediaControlsEnabled(false); // 出错时禁用控件
+            }
+        }
+
+        // 初始化右键菜单
+        private void InitializeContextMenu()
+        {
+            if (appContextMenu != null)
+            {
+                appContextMenu.Closed += (s, e) => {
+                    // 右键菜单关闭后，清除临时属性
+                    appContextMenu.Tag = null;
+                };
             }
         }
 
@@ -865,96 +849,319 @@ namespace MusicBridge
             await RefreshMusicAppStatusAsync();
         }
 
-        // 异步查找所有控制器路径 (可以在后台进行)
-        private async Task FindAllControllerPathsAsync()
+        // 应用图标点击事件处理
+        private async void AppIconButton_Click(object sender, RoutedEventArgs e)
         {
-            List<Task> findPathTasks = new List<Task>();
-            foreach (var controller in controllers)
+            if (sender is Button button && button.Tag is string appTag)
             {
-                findPathTasks.Add(controller.FindExecutablePathAsync());
-            }
-            // 并行等待所有查找任务完成
-            await Task.WhenAll(findPathTasks);
-            Debug.WriteLine("所有控制器的路径查找已完成（或已尝试）。");
-        }
-
-        // 定时器事件处理 (异步)
-        private async void StatusTimer_Tick(object? sender, EventArgs e)
-        {
-            // 异步刷新状态
-            await RefreshMusicAppStatusAsync();
-        }
-
-        // 下拉框选择变化事件 (异步)
-        private async void MusicAppComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (MusicAppComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Content != null)
-            {
-                string appName = selectedItem.Content.ToString()!;
-                var selectedController = controllers.FirstOrDefault(c => c.Name == appName);
-
+                string tag = appTag;
+                
+                // 如果点击的是当前活跃的应用，则关闭应用
+                if (tag == currentActiveAppTag)
+                {
+                    await CloseCurrentAppAsync();
+                    return;
+                }
+                
+                // 获取对应的控制器
+                var selectedController = GetControllerByTag(tag);
+                
                 if (selectedController != null)
                 {
                     currentController = selectedController;
-                    UpdateStatus($"已切换到: {currentController.Name}");
-
-                    // 确保路径已查找 (如果之前没找到，这里可以再试一次)
-                    if (currentController.ExecutablePath == null)
+                    UpdateStatus($"已选择: {currentController.Name}");
+                    
+                    // 如果应用已经在运行，只需更新UI
+                    if (currentController.IsRunning())
                     {
-                        await currentController.FindExecutablePathAsync();
+                        currentActiveAppTag = tag;
+                        UpdateAppIconsStatus();
+                        await RefreshMusicAppStatusAsync();
                     }
-
-                    // 异步刷新新选择的应用状态
-                    await RefreshMusicAppStatusAsync();
-                }
-                else
-                {
-                    // 理论上不应该发生，因为下拉项来自 controllers 列表
-                    UpdateStatus($"错误：未找到名为 {appName} 的控制器。");
-                    currentController = null;
-                    await RefreshMusicAppStatusAsync(); // 刷新以禁用控件
+                    else
+                    {
+                        // 否则启动应用
+                        UpdateStatus($"正在尝试启动 {currentController.Name}...");
+                        await currentController.LaunchAsync();
+                        currentActiveAppTag = tag;
+                        UpdateAppIconsStatus();
+                        await Task.Delay(1000); // 等待启动
+                        await RefreshMusicAppStatusAsync();
+                    }
                 }
             }
-            else
+        }
+        
+        // 应用图标右键点击事件
+        private void AppIconButton_RightClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string appTag && appContextMenu != null)
             {
-                // 没有选中任何项，或选中项无效
-                currentController = null;
-                UpdateStatus("请选择一个音乐播放器。");
-                await RefreshMusicAppStatusAsync(); // 刷新以禁用控件
+                string tag = appTag;
+                
+                // 设置右键菜单的 Tag 属性，以便在右键菜单项点击时知道是哪个应用
+                appContextMenu.Tag = tag;
+                
+                // 获取对应的控制器
+                var controller = GetControllerByTag(tag);
+                
+                // 根据应用是否运行，设置关闭菜单项的可用状态
+                if (controller != null && closeAppMenuItem != null)
+                {
+                    closeAppMenuItem.IsEnabled = controller.IsRunning();
+                    closeAppMenuItem.Header = $"关闭 {controller.Name}";
+                }
+                
+                // 显示右键菜单
+                appContextMenu.IsOpen = true;
+                
+                // 标记事件已处理
+                e.Handled = true;
+            }
+        }
+        
+        // 右键菜单关闭应用点击事件
+        private async void CloseAppMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (appContextMenu?.Tag is string appTag)
+            {
+                var controller = GetControllerByTag(appTag);
+                if (controller != null && controller.IsRunning())
+                {
+                    var oldController = currentController;
+                    currentController = controller;
+                    await CloseCurrentAppAsync();
+                    currentController = oldController;
+                }
+            }
+        }
+        
+        // 根据 Tag 获取控制器
+        private IMusicAppController? GetControllerByTag(string tag)
+        {
+            switch (tag)
+            {
+                case "QQMusic":
+                    return controllers.FirstOrDefault(c => c is QQMusicController);
+                case "NetEase":
+                    return controllers.FirstOrDefault(c => c is NeteaseMusicController);
+                case "Kugou":
+                    return controllers.FirstOrDefault(c => c is KugouMusicController);
+                default:
+                    return null;
+            }
+        }
+        
+        // 关闭当前应用
+        private async Task CloseCurrentAppAsync()
+        {
+            if (currentController == null) return;
+            
+            if (!currentController.IsRunning())
+            {
+                UpdateStatus($"{currentController.Name} 当前未运行。");
+                return;
+            }
+            
+            UpdateStatus($"正在尝试关闭 {currentController.Name}...");
+            
+            try
+            {
+                await currentController.CloseAppAsync();
+                // 关闭后等待一段时间确保进程退出或状态更新
+                await Task.Delay(1000);
+                
+                // 清除当前活跃应用标记
+                if (currentActiveAppTag != null)
+                {
+                    string closedAppTag = currentActiveAppTag;
+                    currentActiveAppTag = null;
+                    UpdateAppIconsStatus();
+                }
+                
+                await RefreshMusicAppStatusAsync(); // 刷新状态
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"关闭 {currentController.Name} 时发生意外错误: {ex.Message}");
+                MessageBox.Show($"关闭 {currentController.Name} 时发生意外错误: {ex.Message}", "关闭错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                await RefreshMusicAppStatusAsync(); // 即使失败也要刷新状态
+            }
+        }
+        
+        // 更新应用图标状态
+        private void UpdateAppIconsStatus()
+        {
+            // 遍历所有应用图标，更新其状态
+            foreach (UIElement element in AppIconsPanel.Children)
+            {
+                if (element is Button button && button.Tag is string tag)
+                {
+                    // 如果是当前活跃的应用，设置为活跃状态
+                    if (tag == currentActiveAppTag)
+                    {
+                        button.Tag = "Active";
+                    }
+                    else if (tag == "Active")
+                    {
+                        // 如果之前是活跃状态，恢复原来的tag
+                        if (button.Name == "QQMusicButton")
+                            button.Tag = "QQMusic";
+                        else if (button.Name == "NetEaseButton")
+                            button.Tag = "NetEase";
+                        else if (button.Name == "KugouButton")
+                            button.Tag = "Kugou";
+                    }
+                }
             }
         }
 
-        // --- 按钮点击事件 (全部改为异步) ---
-        private async void LaunchAppButton_Click(object sender, RoutedEventArgs e)
+        // 刷新音乐应用状态 (异步) - 修改为支持图标UI
+        private async Task RefreshMusicAppStatusAsync()
         {
+            // 检查所有控制器，找出正在运行的应用
+            bool foundRunningApp = false;
+            
+            foreach (var controller in controllers)
+            {
+                if (controller.IsRunning())
+                {
+                    // 如果发现有运行中的应用，切换当前控制器并更新UI
+                    if (currentController != controller)
+                    {
+                        currentController = controller;
+                        UpdateStatus($"检测到 {controller.Name} 正在运行");
+                    }
+                    
+                    string? appTag = null;
+                    
+                    if (controller is QQMusicController)
+                        appTag = "QQMusic";
+                    else if (controller is NeteaseMusicController)
+                        appTag = "NetEase";
+                    else if (controller is KugouMusicController)
+                        appTag = "Kugou";
+                    
+                    if (appTag != null && appTag != currentActiveAppTag)
+                    {
+                        currentActiveAppTag = appTag;
+                        UpdateAppIconsStatus();
+                    }
+                    
+                    foundRunningApp = true;
+                    break; // 只处理第一个找到的运行中应用
+                }
+            }
+            
+            // 如果没有找到运行中的应用，但有活跃应用标记，则清除它
+            if (!foundRunningApp && currentActiveAppTag != null)
+            {
+                currentActiveAppTag = null;
+                UpdateAppIconsStatus();
+            }
+            
             if (currentController == null)
             {
-                MessageBox.Show("请先在下拉列表中选择一个音乐播放器。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                UpdateStatus("请选择播放器");
+                await Dispatcher.InvokeAsync(() => {
+                    if (CurrentSongTextBlock != null) CurrentSongTextBlock.Text = "N/A";
+                    SetMediaControlsEnabled(false); // 禁用媒体控制按钮
+                });
                 return;
             }
 
-            // 防止重复点击
-            LaunchAppButton.IsEnabled = false;
-            UpdateStatus($"正在尝试启动 {currentController.Name}...");
+            bool isRunning = false;
+            string song = "无";
+            string status = $"[{currentController.Name}] ";
 
             try
             {
-                await currentController.LaunchAsync();
-                await Task.Delay(2000); // 等待启动后刷新状态
-                await RefreshMusicAppStatusAsync();
+                isRunning = currentController.IsRunning();
+
+                if (isRunning)
+                {
+                    status += "运行中";
+                    song = currentController.GetCurrentSong();
+                }
+                else
+                {
+                    status += "未运行";
+                    song = "N/A"; // 未运行时显示 N/A
+                }
+
+                UpdateStatus(status);
+
+                // 更新歌曲文本和控件状态 (必须在UI线程)
+                await Dispatcher.InvokeAsync(() => {
+                    if (CurrentSongTextBlock != null)
+                    {
+                        CurrentSongTextBlock.Text = song; // 直接显示歌曲或 N/A
+                    }
+                    SetMediaControlsEnabled(isRunning); // 根据运行状态设置媒体控制按钮可用性
+                });
             }
-            catch (Exception ex) // 捕获 LaunchAsync 可能抛出的其他异常
+            catch (Exception ex)
             {
-                UpdateStatus($"启动 {currentController.Name} 时发生意外错误: {ex.Message}");
-                MessageBox.Show($"启动 {currentController.Name} 时发生意外错误: {ex.Message}", "启动错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                // 即使启动失败，也需要刷新状态来决定按钮是否应该重新启用
-                await RefreshMusicAppStatusAsync();
-            }
-            finally
-            {
-                // LaunchAppButton 的状态由 RefreshMusicAppStatusAsync 中的 SetAllControlsEnabled 控制
+                UpdateStatus($"刷新 {currentController.Name} 状态时出错: {ex.Message}");
+                Debug.WriteLine($"[RefreshMusicAppStatusAsync] Error: {ex.ToString()}");
+                // 出错时，保守地禁用控件
+                await Dispatcher.InvokeAsync(() => SetMediaControlsEnabled(false));
             }
         }
+        
+        // 仅设置媒体控制按钮的可用状态
+        private void SetMediaControlsEnabled(bool isEnabled)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.InvokeAsync(() => SetMediaControlsEnabled(isEnabled));
+                return;
+            }
+
+            PlayPauseButton.IsEnabled = isEnabled;
+            NextButton.IsEnabled = isEnabled;
+            PreviousButton.IsEnabled = isEnabled;
+            VolumeUpButton.IsEnabled = isEnabled;
+            VolumeDownButton.IsEnabled = isEnabled;
+            MuteButton.IsEnabled = isEnabled;
+        }
+
+        // 统一设置所有相关控件的启用/禁用状态 (确保在UI线程执行) - 这个方法将不再使用，保留以供参考
+        private void SetAllControlsEnabled(bool isRunning)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.InvokeAsync(() => SetAllControlsEnabled(isRunning));
+                return;
+            }
+
+            // 媒体控制按钮：仅在应用运行时启用
+            SetMediaControlsEnabled(isRunning);
+        }
+        
+        // 下面是旧的方法，在新UI中不再使用，可以保留或移除
+        private void LaunchAppButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 由新的 AppIconButton_Click 取代
+        }
+        
+        private void CloseAppButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 由新的 AppIconButton_Click 和 CloseAppMenuItem_Click 取代
+        }
+        
+        private void MusicAppComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // 由新的 AppIconButton_Click 取代
+        }
+        
+        // 各个媒体控制按钮的事件处理
+        private async void PlayPauseButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.PlayPause);
+        private async void NextButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.NextTrack);
+        private async void PreviousButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.PreviousTrack);
+        private async void VolumeUpButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.VolumeUp);
+        private async void VolumeDownButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.VolumeDown);
+        private async void MuteButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.VolumeMute);
 
         // 封装发送命令和刷新的逻辑
         private async Task SendCommandAndRefreshAsync(MediaCommand command)
@@ -992,104 +1199,6 @@ namespace MusicBridge
                 // SetMediaControlsEnabled(currentController?.IsRunning() ?? false);
             }
         }
-
-        // 各个媒体控制按钮的事件处理
-        private async void PlayPauseButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.PlayPause);
-        private async void NextButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.NextTrack);
-        private async void PreviousButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.PreviousTrack);
-        private async void VolumeUpButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.VolumeUp);
-        private async void VolumeDownButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.VolumeDown);
-        private async void MuteButton_Click(object sender, RoutedEventArgs e) => await SendCommandAndRefreshAsync(MediaCommand.VolumeMute);
-
-        private async void CloseAppButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (currentController == null) return;
-
-            if (!currentController.IsRunning())
-            {
-                UpdateStatus($"{currentController.Name} 当前未运行。");
-                return;
-            }
-
-            // 禁用按钮，防止重复点击
-            CloseAppButton.IsEnabled = false;
-            UpdateStatus($"正在尝试关闭 {currentController.Name}...");
-
-            try
-            {
-                await currentController.CloseAppAsync();
-                // 关闭后等待一段时间确保进程退出或状态更新
-                await Task.Delay(1000);
-                await RefreshMusicAppStatusAsync(); // 刷新状态
-            }
-            catch (Exception ex) // 捕获 CloseAppAsync 可能抛出的其他异常
-            {
-                UpdateStatus($"关闭 {currentController.Name} 时发生意外错误: {ex.Message}");
-                MessageBox.Show($"关闭 {currentController.Name} 时发生意外错误: {ex.Message}", "关闭错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                await RefreshMusicAppStatusAsync(); // 即使失败也要刷新状态
-            }
-            finally
-            {
-                // CloseAppButton 的状态由 RefreshMusicAppStatusAsync 中的 SetAllControlsEnabled 控制
-            }
-        }
-
-        // 刷新音乐应用状态 (异步)
-        private async Task RefreshMusicAppStatusAsync()
-        {
-            if (currentController == null)
-            {
-                UpdateStatus("请选择播放器");
-                // 确保在UI线程更新UI元素
-                await Dispatcher.InvokeAsync(() => {
-                    if (CurrentSongTextBlock != null) CurrentSongTextBlock.Text = "N/A";
-                    SetAllControlsEnabled(false); // 没有控制器，禁用所有按钮
-                    if (MusicAppComboBox != null) MusicAppComboBox.IsEnabled = true; // 下拉框始终可用
-                });
-                return;
-            }
-
-            bool isRunning = false;
-            string song = "无";
-            string status = $"[{currentController.Name}] ";
-
-            try
-            {
-                // IsRunning() 通常很快，可以在UI线程执行，如果它变慢则考虑 Task.Run
-                isRunning = currentController.IsRunning();
-
-                if (isRunning)
-                {
-                    status += "运行中";
-                    // GetCurrentSong 可能涉及窗口查找，如果卡顿可以移到 Task.Run
-                    song = currentController.GetCurrentSong();
-                }
-                else
-                {
-                    status += "未运行";
-                    song = "N/A"; // 未运行时显示 N/A
-                }
-
-                UpdateStatus(status);
-
-                // 更新歌曲文本和控件状态 (必须在UI线程)
-                await Dispatcher.InvokeAsync(() => {
-                    if (CurrentSongTextBlock != null)
-                    {
-                        CurrentSongTextBlock.Text = song; // 直接显示歌曲或 N/A
-                    }
-                    SetAllControlsEnabled(isRunning); // 根据运行状态设置按钮可用性
-                });
-            }
-            catch (Exception ex)
-            {
-                UpdateStatus($"刷新 {currentController.Name} 状态时出错: {ex.Message}");
-                Debug.WriteLine($"[RefreshMusicAppStatusAsync] Error: {ex.ToString()}");
-                // 出错时，保守地禁用控件
-                await Dispatcher.InvokeAsync(() => SetAllControlsEnabled(false));
-            }
-        }
-
         // 更新状态栏文本 (确保在UI线程执行)
         private void UpdateStatus(string status)
         {
@@ -1109,29 +1218,25 @@ namespace MusicBridge
             Debug.WriteLine($"[状态更新] {status}"); // 保留日志
         }
 
-        // 统一设置所有相关控件的启用/禁用状态 (确保在UI线程执行)
-        private void SetAllControlsEnabled(bool isRunning)
+        // 异步查找所有控制器路径 (可以在后台进行)
+        private async Task FindAllControllerPathsAsync()
         {
-            if (!Dispatcher.CheckAccess())
+            List<Task> findPathTasks = new List<Task>();
+            foreach (var controller in controllers)
             {
-                Dispatcher.InvokeAsync(() => SetAllControlsEnabled(isRunning));
-                return;
+                findPathTasks.Add(controller.FindExecutablePathAsync());
             }
-
-            // 启动按钮：仅在应用未运行时启用
-            LaunchAppButton.IsEnabled = !isRunning && (currentController?.ExecutablePath != null); // 只有找到路径才能启动
-
-            // 媒体控制按钮和关闭按钮：仅在应用运行时启用
-            PlayPauseButton.IsEnabled = isRunning;
-            NextButton.IsEnabled = isRunning;
-            PreviousButton.IsEnabled = isRunning;
-            VolumeUpButton.IsEnabled = isRunning;
-            VolumeDownButton.IsEnabled = isRunning;
-            MuteButton.IsEnabled = isRunning;
-            CloseAppButton.IsEnabled = isRunning;
-
-            // 下拉框始终保持启用，以便用户切换
-            MusicAppComboBox.IsEnabled = true;
+            // 并行等待所有查找任务完成
+            await Task.WhenAll(findPathTasks);
+            Debug.WriteLine("所有控制器的路径查找已完成（或已尝试）。");
         }
+
+        // 定时器事件处理 (异步)
+        private async void StatusTimer_Tick(object? sender, EventArgs e)
+        {
+            // 异步刷新状态
+            await RefreshMusicAppStatusAsync();
+        }
+
     }
 }
